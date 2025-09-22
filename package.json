@@ -1,0 +1,15 @@
+{
+  "type": "module",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "minio": "^8.0.6",
+    "mongoose": "^8.18.1",
+    "multer": "^2.0.2",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.2"
+  }
+}
