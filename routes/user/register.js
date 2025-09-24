@@ -18,7 +18,7 @@ const checkPassSafety = (pass) => {
 };
 
 // 用户注册接口
-router.post("/user/register", upload.none(), async (request, response) => {
+router.post("/", upload.none(), async (request, response) => {
     try {
         const { nickname, password } = request.body;
         const requiredFields = { nickname, password };
@@ -30,30 +30,29 @@ router.post("/user/register", upload.none(), async (request, response) => {
         if (!checkPassSafety(password)) {
             return response.status(400).json({ message: "密码强度低" });
         }
-        // 检查用户是否存在
-        const nickExisted = await user.findOne({ nickname: nickname });
-        if (nickExisted) {
+        // 检查用户存在性
+        if (await user.findOne({ nickname: nickname })) {
             return response.status(409).json({ message: "此昵称已被占用" });
         }
         // 密码加密
         const salt = await bcrypt.genSalt(8);
         const encryptedPass = await bcrypt.hash(password, salt);
-        // 存储元数据
+        // 存储数据
         const newUser = await user.create({
             nickname: nickname,
             password: encryptedPass,
             avatar_path: null
         });
         response.json({ 
-            message: "用户注册成功",
+            message: `注册成功，欢迎${nickname}`,
             user: {
                 id: newUser._id
             }
         });
     } 
     catch (error) {
-        console.error("用户注册失败：", error);
-        response.status(500).json({ message: "用户注册失败" });
+        console.error("注册失败：", error);
+        response.status(500).json({ message: "注册失败" });
     }
 });
 

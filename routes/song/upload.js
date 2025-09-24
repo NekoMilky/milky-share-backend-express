@@ -2,9 +2,8 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { WebSocket } from "ws";
-import { wss } from "../../server.js";
-import { song, s3Client, BUCKETNAME } from "../../database/index.js";
+import { sentToClients } from "../../utils/webSocket.js";
+import { song, user, s3Client, BUCKETNAME } from "../../database/index.js";
 
 const router = express.Router();
 const storage = multer.diskStorage({
@@ -27,28 +26,32 @@ const removeSpecialChar = (string) => {
     return string.replace(/[\/\\:*?"<>|]/g, " ");
 }
 
-// 上传音乐接口
-router.post("/music/upload",
-    // 同时处理音乐文件和封面文件
+// 上传歌曲接口
+router.post("/",
+    // 同时处理歌曲文件和封面文件
     upload.fields([
-        { name: "file", maxCount: 1 },
+        { name: "song", maxCount: 1 },
         { name: "cover", maxCount: 1 }
     ]),
     // 处理请求
     async (request, response) => {
         try {
-            const musicFile = request.files["file"] ? request.files["file"][0] : null;
-            const coverFile = request.files["cover"] ? request.files["cover"][0] : null;
-            if (!musicFile) {
+            const songFile = request.files["song"] ? request.files["song"][0] : null;
+            if (!songFile) {
                 return response.status(400).json({ message: "没有上传音频文件" });
             }
+            const coverFile = request.files["cover"] ? request.files["cover"][0] : null;
             // 解析元数据
-            const { title, artist, album, duration } = request.body;
-            const requiredFields = { title, artist, album, duration };
+            const { title, artist, album, duration, userId } = request.body;
+            const requiredFields = { title, artist, album, duration, userId };
             for (const [key, value] of Object.entries(requiredFields)) {
                 if (!value || value === "") {
                     return response.status(400).json({ message: `缺少${key}参数` });
                 }
+            }
+            // 查询存在性
+            if (!await user.findById(userId).select("_id")) {
+                return response.status(404).json({ message: "未找到对应用户" });
             }
             // 生成文件名
             const filenameTitle = removeSpecialChar(title);
@@ -56,10 +59,10 @@ router.post("/music/upload",
             const filenameAlbum = removeSpecialChar(album);
             const filename = `${filenameTitle}_${filenameArtist}_${filenameAlbum}`;
             // 禁止重复上传
-            const musicFilePostfix = path.extname(musicFile.originalname);
-            const musicObjectName = `music/${filename}${musicFilePostfix}`;
+            const songFilePostfix = path.extname(songFile.originalname);
+            const songObjectName = `song/${filename}${songFilePostfix}`;
             try {
-                await s3Client.statObject(BUCKETNAME, musicObjectName);
+                await s3Client.statObject(BUCKETNAME, songObjectName);
                 return response.status(409).json({ message: "音频文件已存在，请勿重复上传" });
             } catch (error) {
                 if (error.code !== "NotFound") {
@@ -67,7 +70,7 @@ router.post("/music/upload",
                 }
             }
             // 上传音乐文件
-            await s3Client.fPutObject(BUCKETNAME, musicObjectName, musicFile.path);
+            await s3Client.fPutObject(BUCKETNAME, songObjectName, songFile.path);
             // 上传封面文件
             let coverObjectName = null;
             if (coverFile) {
@@ -76,27 +79,27 @@ router.post("/music/upload",
                 await s3Client.fPutObject(BUCKETNAME, coverObjectName, coverFile.path);
             }
             // 存储元数据
-            await song.create({
+            const newSong = await song.create({
                 title: title,
                 artist: artist,
                 album: album,
                 duration: duration,
-                music_path: musicObjectName,
+                uploader: userId,
+                song_path: songObjectName,
                 cover_path: coverObjectName,
             });
             // 向客户端发送更新消息
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({
-                        type: "music_uploaded"
-                    }));
-                }
+            sentToClients({ message: "update_all_song" });
+            response.json({ 
+                message: "歌曲上传成功",
+                song: {
+                    id: newSong._id
+                } 
             });
-            response.json({ message: "音乐上传成功" });
         }
         catch (error) {
-            console.error("音乐上传失败：", error);
-            response.status(500).json({ message: "音乐上传失败" });
+            console.error("歌曲上传失败：", error);
+            response.status(500).json({ message: "歌曲上传失败" });
         }
         finally {
             // 清理临时文件

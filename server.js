@@ -2,40 +2,23 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import http from "http";
-import { WebSocketServer } from "ws";
+import path from "path";
 import { connect } from "./database/index.js";
-
-import uploadMusicRoute from "./routes/music/upload.js";
-import getMusicRoute from "./routes/music/get.js";
-import getMusicListRoute from "./routes/music/get_all.js";
-import starMusicRoute from "./routes/music/star.js";
-import getStaredMusicListRoute from "./routes/music/get_all_stared.js";
-import registerRoute from "./routes/user/register.js";
-import loginRoute from "./routes/user/login.js";
-import getUserRoute from "./routes/user/get.js";
-import saveUserProfileRoute from "./routes/user/save_profile.js";
+import { initWebSocketServer } from "./utils/webSocket.js";
+import { autoRegisterRoutes } from "./utils/autoRoute.js";
+import { fileURLToPath } from "url";
 
 const HOST = process.env.HOST || "0.0.0.0";
 const PORT = process.env.PORT || 3000;
-const FRONTEND_URL = process.env.FRONTEND_URL;
+
+const DIRNAME = path.dirname(fileURLToPath(import.meta.url));
 
 // http服务器
 const app = express();
 const server = http.createServer(app);
 
 // WebSocket服务器并配置跨域
-export const wss = new WebSocketServer({
-    server, 
-    cors: {
-        origin: FRONTEND_URL, 
-        methods: ["GET", "POST"]
-    }
-});
-wss.on("connection", (ws) => {
-    ws.on("error", (error) => {
-        console.error("WebSocket错误：", error);
-    });
-});
+initWebSocketServer(server);
 
 // Express配置
 app.use(cors());
@@ -45,15 +28,8 @@ app.use(express.urlencoded({ extended: true }));
 // 连接MongoDB及Minio
 await connect();
 
-app.use("/", uploadMusicRoute);
-app.use("/", getMusicRoute);
-app.use("/", getMusicListRoute);
-app.use("/", starMusicRoute);
-app.use("/", getStaredMusicListRoute);
-app.use("/", registerRoute);
-app.use("/", loginRoute);
-app.use("/", getUserRoute);
-app.use("/", saveUserProfileRoute);
+// 自动注册路由
+autoRegisterRoutes(app, path.join(DIRNAME, "routes"));
 
 server.listen(PORT, HOST, () => {
     console.log(`服务启动于：${HOST}:${PORT}\n`);

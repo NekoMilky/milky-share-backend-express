@@ -2,8 +2,7 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { WebSocket } from "ws";
-import { wss } from "../../server.js";
+import { sentToClients } from "../../utils/webSocket.js";
 import { user, s3Client, BUCKETNAME } from "../../database/index.js";
 
 const router = express.Router();
@@ -24,7 +23,7 @@ const upload = multer({
 });
 
 // 保存档案接口
-router.post("/user/save_profile",
+router.post("/",
     upload.fields([
         { name: "avatar", maxCount: 1 }
     ]),
@@ -33,38 +32,34 @@ router.post("/user/save_profile",
         try {
             const avatarFile = request.files["avatar"] ? request.files["avatar"][0] : null;
             // 解析元数据
-            const { id, nickname } = request.body;
-            const requiredFields = { id, nickname };
+            const { userId, nickname } = request.body;
+            const requiredFields = { userId, nickname };
             for (const [key, value] of Object.entries(requiredFields)) {
                 if (!value || value === "") {
                     return response.status(400).json({ message: `缺少${key}参数` });
                 }
             }
-            // 根据id查询数据库
-            const userInfo = await user.findById(id);
+            // 查询存在性
+            if (await user.findOne({ nickname: nickname })) {
+                return response.status(409).json({ message: "此昵称已被占用" });
+            }
+            const userInfo = await user.findById(userId).select("avatar_path");
             if (!userInfo) {
-                return response.status(404).json({ message: "未找到id对应的用户" });
+                return response.status(404).json({ message: "未找到对应用户" });
             }
             // 上传头像文件
             let avatarObjectName = null;
             if (avatarFile) {
                 const avatarFilePostfix = path.extname(avatarFile.originalname);
-                avatarObjectName = `avatar/${id}${avatarFilePostfix}`;
+                avatarObjectName = `avatar/${userId}${avatarFilePostfix}`;
                 await s3Client.fPutObject(BUCKETNAME, avatarObjectName, avatarFile.path);
             }
             // 存储元数据
             userInfo.nickname = nickname;
             userInfo.avatar_path = avatarObjectName || userInfo.avatar_path;
-            await user.findByIdAndUpdate(id, userInfo);
+            await user.findByIdAndUpdate(userId, userInfo);
             // 向客户端发送更新消息
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({
-                        type: "profile_updated",
-                        id: id
-                    }));
-                }
-            });
+            sentToClients({ message: "update_profile", userId: userId });
             response.json({ message: "档案保存成功" });
         }
         catch (error) {

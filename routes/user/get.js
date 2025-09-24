@@ -6,16 +6,19 @@ const router = express.Router();
 const upload = multer();
 
 // 获取用户接口
-router.post("/user/get", upload.none(), async (request, response) => {
+router.post("/", upload.none(), async (request, response) => {
     try {
-        const { id } = request.body;
-        if (!id || id === "") {
-            return response.status(400).json({ message: "缺少id参数" });
+        const { userId } = request.body;
+        const requiredFields = { userId };
+        for (const [key, value] of Object.entries(requiredFields)) {
+            if (!value || value === "") {
+                return response.status(400).json({ message: `缺少${key}参数` });
+            }
         }
-        // 根据id查询数据库
-        const userInfo = await user.findById(id);
+        // 查询存在性
+        const userInfo = await user.findById(userId).select("nickname avatar_path");
         if (!userInfo) {
-            return response.status(404).json({ message: "未找到id对应的用户" });
+            return response.status(404).json({ message: "未找到对应用户" });
         }
         // 头像url
         let avatar = null;
@@ -25,7 +28,7 @@ router.post("/user/get", upload.none(), async (request, response) => {
         response.json({
             message: "获取用户成功",
             user: {
-                id: id,
+                id: userId,
                 nickname: userInfo.nickname,
                 avatar: avatar
             }

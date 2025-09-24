@@ -54,7 +54,8 @@ const songSchema = new mongoose.Schema({
     artist: { type: String, required: true },
     album: { type: String, required: true },
     duration: { type: Number, required: true },
-    music_path: { type: String, required: true },
+    uploader: { type: mongoose.Schema.Types.ObjectId, ref: "user" , required: true },
+    song_path: { type: String, required: true },
     cover_path: { type: String }
 }, { versionKey: false });
 export const song = mongoose.model("song", songSchema);
@@ -67,18 +68,52 @@ const userSchema = new mongoose.Schema({
 }, { versionKey: false });
 export const user = mongoose.model("user", userSchema);
 
-// 收藏夹
-const starSchema = new mongoose.Schema({
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "user",
-        required: true
-    },
-    song: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "song",
-        required: true
-    }
+// 歌单信息
+const playlistSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    create_time: { type: Date, required: true},
+    create_user: { type: mongoose.Schema.Types.ObjectId, ref: "user" , required: true }
 }, { versionKey: false });
-starSchema.index({ user: 1, song: 1 }, { unique: true });
-export const star = mongoose.model("star", starSchema);
+export const playlist = mongoose.model("playlist", playlistSchema);
+
+// 用户与歌单的多对多关系表
+const userPlaylistSchema = new mongoose.Schema({
+    user_id: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "user", 
+        required: true,
+        index: true
+    },
+    playlist_id: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "playlist", 
+        required: true,
+        index: true
+    }
+}, { 
+    versionKey: false,
+    unique: true,
+    index: { unique: true, fields: ["user_id", "playlist_id"] }
+});
+export const userPlaylist = mongoose.model("user_playlist", userPlaylistSchema);
+
+// 歌单与歌曲的多对多关系表
+const playlistSongSchema = new mongoose.Schema({
+    playlist_id: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "playlist", 
+        required: true,
+        index: true
+    },
+    song_id: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "song", 
+        required: true,
+        index: true
+    }
+}, { 
+    versionKey: false,
+    unique: true,
+    index: { unique: true, fields: ["playlist_id", "song_id"] }
+});
+export const playlistSong = mongoose.model("playlist_song", playlistSongSchema);
