@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { checkEmptyField } from "../../utils/utility.js";
-import { user, playlist, userPlaylist } from "../../database/index.js";
+import { user, playlist, userPlaylist, s3Client, BUCKETNAME } from "../../database/index.js";
 
 const router = express.Router();
 const upload = multer();
@@ -15,10 +15,17 @@ router.post("/", upload.none(), async (request, response) => {
             return response.status(400).json({ message: empty });
         }
         // 查询存在性
-        const userInfo = await user.findById(userId).select("nickname");
+        let userInfos = {};
+        const userInfo = await user.findById(userId).select("nickname avatar_path");
         if (!userInfo) {
             return response.status(404).json({ message: "未找到对应用户" });
         }
+        let avatar = null;
+        if (userInfo.avatar_path) {
+            avatar = await s3Client.presignedGetObject(BUCKETNAME, userInfo.avatar_path, 24 * 60 * 60);
+        }
+        const userObject = { nickname: userInfo.nickname, avatar: avatar };
+        userInfos[userId] = userObject;
         // 创建的歌单
         const createPlaylists = await playlist.find({ create_user: userId }).select("_id name create_time");
         const createPlaylistList = createPlaylists.map((item) => {
@@ -26,35 +33,34 @@ router.post("/", upload.none(), async (request, response) => {
                 id: item._id,
                 name: item.name,
                 create_time: item.create_time,
-                create_user: {
-                    nickname: userInfo.nickname
-                }
+                create_user: userObject
             };
         })
         // 收藏的歌单
         const starPlaylists = await userPlaylist.find({ user_id: userId }).select("playlist_id");
-        let userIdAndNickname = {};
         const starPlaylistList = await Promise.all(
             starPlaylists.map(async (item) => {
                 const playlistId = item.playlist_id;
                 const playlistInfo = await playlist.findById(playlistId).select("name create_time create_user");
                 const createUserId = playlistInfo.create_user;
-                let createUserNickname;
-                if (createUserId in userIdAndNickname) {
-                    createUserNickname = userIdAndNickname[createUserId];
+                let createUserObject;
+                if (createUserId in userInfos) {
+                    createUserObject = userInfos[createUserId];
                 }
                 else {
-                    const createUserInfo = await user.findById(createUserId).select("nickname");
-                    createUserNickname = createUserInfo.nickname;
-                    userIdAndNickname[createUserId] = createUserNickname;
+                    const createUserInfo = await user.findById(createUserId).select("nickname avatar_path");
+                    let createUserAvatar = null;
+                    if (createUserInfo.avatar_path) {
+                        createUserAvatar = await s3Client.presignedGetObject(BUCKETNAME, createUserInfo.avatar_path, 24 * 60 * 60);
+                    }
+                    createUserObject = { nickname: createUserInfo.nickname, avatar: createUserAvatar };
+                    userInfos[createUserId] = createUserObject;
                 }
                 return {
                     id: playlistId,
                     name: playlistInfo.name,
                     create_time: playlistInfo.create_time,
-                    create_user: {
-                        nickname: createUserNickname
-                    }
+                    create_user: createUserObject
                 };
             })
         );
