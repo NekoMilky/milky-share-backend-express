@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
 import { song, user, s3Client, BUCKETNAME } from "../../database/index.js";
 
@@ -43,11 +44,12 @@ router.post("/",
             const coverFile = request.files["cover"] ? request.files["cover"][0] : null;
             // 解析元数据
             const { title, artist, album, duration, userId } = request.body;
-            const requiredFields = { title, artist, album, duration, userId };
-            for (const [key, value] of Object.entries(requiredFields)) {
-                if (!value || value === "") {
-                    return response.status(400).json({ message: `缺少${key}参数` });
-                }
+            const empty = checkEmptyFields(
+                { title, artist, album, duration, userId }, 
+                { title: "标题", artist: "艺术家", album: "专辑", duration: "时长", userId: "用户id" }
+            );
+            if (empty) {
+                return response.status(400).json({ message: empty });
             }
             // 查询存在性
             if (!await user.findById(userId).select("_id")) {

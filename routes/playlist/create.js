@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
 import { playlist, user } from "../../database/index.js";
 
@@ -10,11 +11,9 @@ const upload = multer();
 router.post("/", upload.none(), async (request, response) => {
     try {
         const { userId, name } = request.body;
-        const requiredFields = { userId, name };
-        for (const [key, value] of Object.entries(requiredFields)) {
-            if (!value || value === "") {
-                return response.status(400).json({ message: `缺少${key}参数` });
-            }
+        const empty = checkEmptyFields({ userId, name }, { userId: "用户id", name: "歌单名" });
+        if (empty) {
+            return response.status(400).json({ message: empty });
         }
         // 查询存在性
         if (!await user.findById(userId).select("_id")) {

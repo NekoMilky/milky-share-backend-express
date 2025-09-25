@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
 import { user, s3Client, BUCKETNAME } from "../../database/index.js";
 
@@ -33,11 +34,9 @@ router.post("/",
             const avatarFile = request.files["avatar"] ? request.files["avatar"][0] : null;
             // 解析元数据
             const { userId, nickname } = request.body;
-            const requiredFields = { userId, nickname };
-            for (const [key, value] of Object.entries(requiredFields)) {
-                if (!value || value === "") {
-                    return response.status(400).json({ message: `缺少${key}参数` });
-                }
+            const empty = checkEmptyFields({ userId, nickname }, { userId: "用户id", nickname: "昵称" });
+            if (empty) {
+                return response.status(400).json({ message: empty });
             }
             // 查询存在性
             if (await user.findOne({ nickname: nickname })) {

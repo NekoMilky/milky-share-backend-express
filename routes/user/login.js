@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import bcrypt from "bcryptjs";
+import { checkEmptyFields } from "../../utils/utility.js";
 import { user } from "../../database/index.js";
 
 const router = express.Router();
@@ -10,11 +11,9 @@ const upload = multer();
 router.post("/", upload.none(), async (request, response) => {
     try {
         const { nickname, password } = request.body;
-        const requiredFields = { nickname, password };
-        for (const [key, value] of Object.entries(requiredFields)) {
-            if (!value || value === "") {
-                return response.status(400).json({ message: `缺少${key}参数` });
-            }
+        const empty = checkEmptyFields({ nickname, password }, { nickname: "昵称", password: "密码" });
+        if (empty) {
+            return response.status(400).json({ message: empty });
         }
         // 检查用户存在性并验证
         const userInfo = await user.findOne({ nickname: nickname }).select("_id password");

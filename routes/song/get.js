@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import { checkEmptyField } from "../../utils/utility.js";
 import { song, s3Client, BUCKETNAME } from "../../database/index.js";
 
 const router = express.Router();
@@ -9,11 +10,9 @@ const upload = multer();
 router.post("/", upload.none(), async (request, response) => {
     try {
         const { songId } = request.body;
-        const requiredFields = { songId };
-        for (const [key, value] of Object.entries(requiredFields)) {
-            if (!value || value === "") {
-                return response.status(400).json({ message: `缺少${key}参数` });
-            }
+        const empty = checkEmptyField(songId, "歌曲id");
+        if (empty) {
+            return response.status(400).json({ message: empty });
         }
         // 查询存在性
         const songInfo = await song.findById(songId).select("_id title artist album song_path cover_path uploader");
