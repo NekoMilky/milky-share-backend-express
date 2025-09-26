@@ -54,7 +54,7 @@ const songSchema = new mongoose.Schema({
     artist: { type: String, required: true },
     album: { type: String, required: true },
     duration: { type: Number, required: true },
-    uploader: { type: mongoose.Schema.Types.ObjectId, ref: "user" , required: true },
+    uploader: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
     song_path: { type: String, required: true },
     cover_path: { type: String }
 }, { versionKey: false });
@@ -72,7 +72,7 @@ export const user = mongoose.model("user", userSchema);
 const playlistSchema = new mongoose.Schema({
     name: { type: String, required: true },
     create_time: { type: Date, required: true},
-    create_user: { type: mongoose.Schema.Types.ObjectId, ref: "user" , required: true },
+    create_user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
     cover_path: { type: String }
 }, { versionKey: false });
 export const playlist = mongoose.model("playlist", playlistSchema);
