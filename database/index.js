@@ -72,7 +72,8 @@ export const user = mongoose.model("user", userSchema);
 const playlistSchema = new mongoose.Schema({
     name: { type: String, required: true },
     create_time: { type: Date, required: true},
-    create_user: { type: mongoose.Schema.Types.ObjectId, ref: "user" , required: true }
+    create_user: { type: mongoose.Schema.Types.ObjectId, ref: "user" , required: true },
+    cover_path: { type: String }
 }, { versionKey: false });
 export const playlist = mongoose.model("playlist", playlistSchema);
 

@@ -32,14 +32,13 @@ router.post("/",
     async (request, response) => {
         try {
             const avatarFile = request.files["avatar"] ? request.files["avatar"][0] : null;
-            // 解析元数据
             const { userId, nickname } = request.body;
             const empty = checkEmptyFields({ userId, nickname }, { userId: "用户id", nickname: "昵称" });
             if (empty) {
                 return response.status(400).json({ message: empty });
             }
             // 查询存在性
-            if (await user.findOne({ nickname: nickname })) {
+            if (await user.findOne({ _id: { $ne: userId }, nickname: nickname })) {
                 return response.status(409).json({ message: "此昵称已被占用" });
             }
             const userInfo = await user.findById(userId).select("avatar_path");

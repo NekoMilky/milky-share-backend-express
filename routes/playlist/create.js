@@ -23,7 +23,8 @@ router.post("/", upload.none(), async (request, response) => {
         const newPlaylist = await playlist.create({
             name: name,
             create_user: userId,
-            create_time: new Date()
+            create_time: new Date(),
+            cover_path: null
         });
         // 向客户端发送更新消息
         sentToClients({ message: "update_playlist" });

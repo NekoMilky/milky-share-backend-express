@@ -16,49 +16,73 @@ router.post("/", upload.none(), async (request, response) => {
         }
         // 查询存在性
         let userInfos = {};
-        const userInfo = await user.findById(userId).select("nickname avatar_path");
+        const userInfo = await user.findById(userId).select("_id nickname avatar_path");
         if (!userInfo) {
             return response.status(404).json({ message: "未找到对应用户" });
         }
+        // 头像url
         let avatar = null;
         if (userInfo.avatar_path) {
             avatar = await s3Client.presignedGetObject(BUCKETNAME, userInfo.avatar_path, 24 * 60 * 60);
         }
-        const userObject = { nickname: userInfo.nickname, avatar: avatar };
+        const userObject = { 
+            id: userInfo._id, 
+            nickname: userInfo.nickname, 
+            avatar: avatar 
+        };
         userInfos[userId] = userObject;
         // 创建的歌单
-        const createPlaylists = await playlist.find({ create_user: userId }).select("_id name create_time");
-        const createPlaylistList = createPlaylists.map((item) => {
-            return {
-                id: item._id,
-                name: item.name,
-                create_time: item.create_time,
-                create_user: userObject
-            };
-        })
+        const createPlaylists = await playlist.find({ create_user: userId }).select("_id name create_time cover_path");
+        const createPlaylistList = await Promise.all(
+            createPlaylists.map(async (item) => {
+                // 封面url
+                let cover = null;
+                if (item.cover_path) {
+                    cover = await s3Client.presignedGetObject(BUCKETNAME, item.cover_path, 24 * 60 * 60);
+                }
+                return {
+                    id: item._id,
+                    name: item.name,
+                    cover: cover,
+                    create_time: item.create_time,
+                    create_user: userObject,
+                };
+            })
+        )
         // 收藏的歌单
         const starPlaylists = await userPlaylist.find({ user_id: userId }).select("playlist_id");
         const starPlaylistList = await Promise.all(
             starPlaylists.map(async (item) => {
                 const playlistId = item.playlist_id;
-                const playlistInfo = await playlist.findById(playlistId).select("name create_time create_user");
+                const playlistInfo = await playlist.findById(playlistId).select("name create_time create_user cover_path");
+                // 封面url
+                let cover = null;
+                if (playlistInfo.cover_path) {
+                    cover = await s3Client.presignedGetObject(BUCKETNAME, playlistInfo.cover_path, 24 * 60 * 60);
+                }
                 const createUserId = playlistInfo.create_user;
                 let createUserObject;
                 if (createUserId in userInfos) {
                     createUserObject = userInfos[createUserId];
                 }
                 else {
-                    const createUserInfo = await user.findById(createUserId).select("nickname avatar_path");
+                    const createUserInfo = await user.findById(createUserId).select("_id nickname avatar_path");
                     let createUserAvatar = null;
+                    // 头像url
                     if (createUserInfo.avatar_path) {
                         createUserAvatar = await s3Client.presignedGetObject(BUCKETNAME, createUserInfo.avatar_path, 24 * 60 * 60);
                     }
-                    createUserObject = { nickname: createUserInfo.nickname, avatar: createUserAvatar };
+                    createUserObject = { 
+                        id: createUserInfo._id, 
+                        nickname: createUserInfo.nickname, 
+                        avatar: createUserAvatar 
+                    };
                     userInfos[createUserId] = createUserObject;
                 }
                 return {
                     id: playlistId,
                     name: playlistInfo.name,
+                    cover: cover,
                     create_time: playlistInfo.create_time,
                     create_user: createUserObject
                 };
