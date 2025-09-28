@@ -4,7 +4,8 @@ import fs from "fs";
 import path from "path";
 import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
-import { user, s3Client, BUCKETNAME } from "../../database/index.js";
+import { user, s3Client, BUCKETNAME } from "../../database.js";
+import { HttpError } from "../../utils/errorHandler.js";
 
 const router = express.Router();
 const storage = multer.diskStorage({
@@ -19,31 +20,34 @@ const storage = multer.diskStorage({
         cb(null, Date.now() + "-" + file.originalname);
     }
 });
-const upload = multer({
-    storage: storage
-});
+const upload = multer({ storage: storage });
 
 // 保存档案接口
 router.post("/",
+    // 处理头像文件
     upload.fields([
         { name: "avatar", maxCount: 1 }
     ]),
     // 处理请求
-    async (request, response) => {
+    async (request, response, next) => {
         try {
-            const avatarFile = request.files["avatar"] ? request.files["avatar"][0] : null;
+            const files = request.files as { [name: string]: Express.Multer.File[] } | undefined;
+            const avatarFile = files?.["avatar"] ? files["avatar"][0] : null;
             const { userId, nickname } = request.body;
-            const empty = checkEmptyFields({ userId, nickname }, { userId: "用户id", nickname: "昵称" });
+            const empty = checkEmptyFields(
+                { userId, nickname }, 
+                { userId: "用户id", nickname: "昵称" }
+            );
             if (empty) {
-                return response.status(400).json({ message: empty });
+                throw new HttpError(empty, 400);
             }
             // 查询存在性
             if (await user.findOne({ _id: { $ne: userId }, nickname: nickname })) {
-                return response.status(409).json({ message: "此昵称已被占用" });
+                throw new HttpError("昵称已被占用", 409);
             }
             const userInfo = await user.findById(userId).select("avatar_path");
             if (!userInfo) {
-                return response.status(404).json({ message: "未找到对应用户" });
+                throw new HttpError("未找到用户", 404);
             }
             // 上传头像文件
             let avatarObjectName = null;
@@ -61,8 +65,7 @@ router.post("/",
             response.json({ message: "档案保存成功" });
         }
         catch (error) {
-            console.error("档案保存失败：", error);
-            response.status(500).json({ message: "档案保存失败" });
+            next(error);
         }
         finally {
             // 清理临时文件

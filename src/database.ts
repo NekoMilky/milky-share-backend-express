@@ -42,9 +42,9 @@ export const connect = async () => {
         }
         console.log("MinIO连接成功");
     } 
-    catch (minioError) {
-        console.error("MinIO连接失败：", minioError);
-        throw minioError;
+    catch (error) {
+        console.error("MinIO连接失败：", error);
+        throw error;
     }
 };
 

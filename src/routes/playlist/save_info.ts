@@ -4,7 +4,8 @@ import fs from "fs";
 import path from "path";
 import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
-import { playlist, s3Client, BUCKETNAME } from "../../database/index.js";
+import { HttpError } from "../../utils/errorHandler.js";
+import { playlist, s3Client, BUCKETNAME } from "../../database.js";
 
 const router = express.Router();
 const storage = multer.diskStorage({
@@ -19,28 +20,35 @@ const storage = multer.diskStorage({
         cb(null, Date.now() + "-" + file.originalname);
     }
 });
-const upload = multer({
-    storage: storage
-});
+const upload = multer({ storage: storage });
 
 // 保存歌单信息接口
 router.post("/",
+    // 处理封面文件
     upload.fields([
         { name: "cover", maxCount: 1 }
     ]),
     // 处理请求
-    async (request, response) => {
+    async (request, response, next) => {
         try {
-            const coverFile = request.files["cover"] ? request.files["cover"][0] : null;
-            const { playlistId, name } = request.body;
-            const empty = checkEmptyFields({ playlistId, name }, { playlistId: "歌单id", name: "歌单名" });
+            const files = request.files as { [name: string]: Express.Multer.File[] } | undefined;
+            const coverFile = files?.["cover"] ? files["cover"][0] : null;
+            const { userId, playlistId, name } = request.body;
+            const empty = checkEmptyFields(
+                { userId, playlistId, name }, 
+                { userId: "用户id", playlistId: "歌单id", name: "歌单名" }
+            );
             if (empty) {
-                return response.status(400).json({ message: empty });
+                throw new HttpError(empty, 400);
             }
             // 查询存在性
             const playlistInfo = await playlist.findById(playlistId).select("cover_path create_user");
             if (!playlistInfo) {
-                return response.status(404).json({ message: "未找到对应歌单" });
+                throw new HttpError("未找到歌单", 404);
+            }
+            // 权限校验
+            if (playlistInfo.create_user.toString() !== userId) {
+                throw new HttpError("权限不足", 403);
             }
             // 上传封面文件
             let coverObjectName = null;
@@ -58,8 +66,7 @@ router.post("/",
             response.json({ message: "歌单信息保存成功" });
         }
         catch (error) {
-            console.error("歌单信息保存失败：", error);
-            response.status(500).json({ message: "歌单信息保存失败" });
+            next(error);
         }
         finally {
             // 清理临时文件
@@ -70,6 +77,7 @@ router.post("/",
                 ));
             }
         }
-    });
+    }
+);
 
 export default router;

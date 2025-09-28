@@ -2,9 +2,11 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { S3Error } from "minio";
+import { HttpError } from "../../utils/errorHandler.js";
 import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
-import { song, user, s3Client, BUCKETNAME } from "../../database/index.js";
+import { song, user, s3Client, BUCKETNAME } from "../../database.js";
 
 const router = express.Router();
 const storage = multer.diskStorage({
@@ -19,11 +21,9 @@ const storage = multer.diskStorage({
         cb(null, Date.now() + "-" + file.originalname);
     }
 });
-const upload = multer({
-    storage: storage
-});
+const upload = multer({ storage: storage });
 
-const removeSpecialChar = (string) => {
+const removeSpecialChar = (string: string) => {
     return string.replace(/[\/\\:*?"<>|]/g, " ");
 }
 
@@ -35,13 +35,14 @@ router.post("/",
         { name: "cover", maxCount: 1 }
     ]),
     // 处理请求
-    async (request, response) => {
+    async (request, response, next) => {
         try {
-            const songFile = request.files["song"] ? request.files["song"][0] : null;
+            const files = request.files as { [name: string]: Express.Multer.File[] } | undefined;
+            const songFile = files?.["song"] ? files["song"][0] : null;
             if (!songFile) {
-                return response.status(400).json({ message: "没有上传音频文件" });
+                throw new HttpError("缺失音频文件", 400);
             }
-            const coverFile = request.files["cover"] ? request.files["cover"][0] : null;
+            const coverFile = files?.["cover"] ? files["cover"][0] : null;
             // 解析元数据
             const { title, artist, album, duration, userId } = request.body;
             const empty = checkEmptyFields(
@@ -49,11 +50,11 @@ router.post("/",
                 { title: "标题", artist: "艺术家", album: "专辑", duration: "时长", userId: "用户id" }
             );
             if (empty) {
-                return response.status(400).json({ message: empty });
+                throw new HttpError(empty, 400);
             }
             // 查询存在性
             if (!await user.findById(userId).select("_id")) {
-                return response.status(404).json({ message: "未找到对应用户" });
+                throw new HttpError("未找到用户", 404);
             }
             // 生成文件名
             const filenameTitle = removeSpecialChar(title);
@@ -65,10 +66,14 @@ router.post("/",
             const songObjectName = `song/${filename}${songFilePostfix}`;
             try {
                 await s3Client.statObject(BUCKETNAME, songObjectName);
-                return response.status(409).json({ message: "音频文件已存在，请勿重复上传" });
+                throw new HttpError("请勿重复上传", 409);
             } catch (error) {
-                if (error.code !== "NotFound") {
-                    return response.status(500).json({ message: "检查音频文件时出错" });
+                if (error instanceof HttpError) {
+                    throw error;
+                }
+                const S3Error = error as S3Error;
+                if (S3Error.code !== "NotFound") {
+                    throw new HttpError("检查音频文件时出错", 500);
                 }
             }
             // 上传音乐文件
@@ -100,8 +105,7 @@ router.post("/",
             });
         }
         catch (error) {
-            console.error("歌曲上传失败：", error);
-            response.status(500).json({ message: "歌曲上传失败" });
+            next(error);
         }
         finally {
             // 清理临时文件

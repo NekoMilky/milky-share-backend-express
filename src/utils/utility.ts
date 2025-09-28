@@ -1,5 +1,5 @@
 // 检查空值
-export const checkEmptyField = (value, label) => {
+export const checkEmptyField = (value: unknown, label: string) => {
     const isEmpty = value === undefined
         || value === null
         || (typeof value === "string" && value.trim() === "")
@@ -9,9 +9,9 @@ export const checkEmptyField = (value, label) => {
     }
     return null;
 };
-export const checkEmptyFields = (fields, labels = null) => {
+export const checkEmptyFields = (fields: Record<string, unknown>, labels: Partial<Record<string, string>> = {}) => {
     for (const [key, value] of Object.entries(fields)) {
-        const label = labels[key] || key;
+        const label = labels[key] ?? key;
         const result = checkEmptyField(value, label);
         if (result) {
             return result;

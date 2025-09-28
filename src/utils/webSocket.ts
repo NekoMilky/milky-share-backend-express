@@ -1,17 +1,11 @@
+import http from "http";
 import { WebSocketServer, WebSocket } from "ws";
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
-let wss = null;
-export const initWebSocketServer = (server) => {
-    wss = new WebSocketServer({
-        server, 
-        cors: {
-            origin: FRONTEND_URL, 
-            methods: ["GET", "POST"]
-        }
-    });
-
+let wss: WebSocketServer | null = null;
+export const initWebSocketServer = (server: http.Server) => {
+    wss = new WebSocketServer({ server });
     // 连接
     wss.on("connection", (ws) => {
         ws.on("error", (error) => {
@@ -20,7 +14,7 @@ export const initWebSocketServer = (server) => {
     });
 };
 
-export const sentToClients = (object) => {
+export const sentToClients = (object: Object) => {
     if (!wss) {
         return;
     }
