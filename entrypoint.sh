@@ -1,1 +1,1 @@
-node server.js
+node dist/server.js
