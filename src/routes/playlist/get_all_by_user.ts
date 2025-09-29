@@ -42,8 +42,8 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
                 id: item._id,
                 name: item.name,
                 cover: cover,
-                create_time: item.create_time,
-                create_user: userObject,
+                createTime: item.create_time,
+                createUser: userObject,
             };
         })
     )
@@ -88,8 +88,8 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
                     id: playlistId,
                     name: playlistInfo.name,
                     cover: cover,
-                    create_time: playlistInfo.create_time,
-                    create_user: createUserObject
+                    createTime: playlistInfo.create_time,
+                    createUser: createUserObject
                 };
             }
             catch (error) {
