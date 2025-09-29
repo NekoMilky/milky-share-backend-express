@@ -67,7 +67,8 @@ router.post("/",
             try {
                 await s3Client.statObject(BUCKETNAME, songObjectName);
                 throw new HttpError("请勿重复上传", 409);
-            } catch (error) {
+            } 
+            catch (error) {
                 if (error instanceof HttpError) {
                     throw error;
                 }
