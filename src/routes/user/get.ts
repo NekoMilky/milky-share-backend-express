@@ -7,13 +7,20 @@ const router = express.Router();
 
 // 获取用户接口
 router.post("/", express.json(), errorHandler(async (request, response) => {
-    const { userId } = request.body;
-    const empty = checkEmptyField(userId, "用户id");
-    if (empty) {
-        throw new HttpError(empty, 400);
+    const { userId, nickname } = request.body;
+    const userIdEmpty = checkEmptyField(userId, "用户id");
+    const nicknameEmpty = checkEmptyField(nickname, "昵称");
+    if (userIdEmpty && nicknameEmpty) {
+        throw new HttpError(userIdEmpty, 400);
     }
     // 查询存在性
-    const userInfo = await user.findById(userId).select("nickname avatar_path");
+    let userInfo = null;
+    if (userIdEmpty) {
+        userInfo = await user.findOne({ nickname: nickname }).select("_id nickname avatar_path");
+    }
+    else {
+        userInfo = await user.findById(userId).select("_id nickname avatar_path");
+    }
     if (!userInfo) {
         throw new HttpError("未找到用户", 404);
     }
@@ -25,7 +32,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
     response.json({
         message: "获取用户成功",
         user: {
-            id: userId,
+            id: userInfo._id,
             nickname: userInfo.nickname,
             avatar: avatar
         }
