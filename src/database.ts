@@ -64,6 +64,7 @@ export const song = mongoose.model("song", songSchema);
 const userSchema = new mongoose.Schema({
     nickname: { type: String, required: true },
     password: { type: String, required: true },
+    join_time: { type: Date, required: true},
     avatar_path: { type: String }
 }, { versionKey: false });
 export const user = mongoose.model("user", userSchema);

@@ -42,6 +42,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
     const newUser = await user.create({
         nickname: nickname,
         password: encryptedPass,
+        join_time: new Date(),
         avatar_path: null
     });
     response.json({ 

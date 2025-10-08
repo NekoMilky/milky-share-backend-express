@@ -16,10 +16,10 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
     // 查询存在性
     let userInfo = null;
     if (userIdEmpty) {
-        userInfo = await user.findOne({ nickname: nickname }).select("_id nickname avatar_path");
+        userInfo = await user.findOne({ nickname: nickname }).select("_id nickname join_time avatar_path");
     }
     else {
-        userInfo = await user.findById(userId).select("_id nickname avatar_path");
+        userInfo = await user.findById(userId).select("_id nickname join_time avatar_path");
     }
     if (!userInfo) {
         throw new HttpError("未找到用户", 404);
@@ -34,6 +34,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
         user: {
             id: userInfo._id,
             nickname: userInfo.nickname,
+            joinTime: userInfo.join_time, 
             avatar: avatar
         }
     });
