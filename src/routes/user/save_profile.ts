@@ -53,7 +53,7 @@ router.post("/",
             let avatarObjectName = null;
             if (avatarFile) {
                 const avatarFilePostfix = path.extname(avatarFile.originalname);
-                avatarObjectName = `avatar/${userId}${avatarFilePostfix}`;
+                avatarObjectName = `user/avatar/${userId}${avatarFilePostfix}`;
                 await s3Client.fPutObject(BUCKETNAME, avatarObjectName, avatarFile.path);
             }
             // 存储元数据

@@ -54,7 +54,7 @@ router.post("/",
             let coverObjectName = null;
             if (coverFile) {
                 const coverFilePostfix = path.extname(coverFile.originalname);
-                coverObjectName = `playlist_cover/${playlistId}${coverFilePostfix}`;
+                coverObjectName = `playlist/cover/${playlistId}${coverFilePostfix}`;
                 await s3Client.fPutObject(BUCKETNAME, coverObjectName, coverFile.path);
             }
             // 存储元数据

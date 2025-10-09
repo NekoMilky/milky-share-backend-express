@@ -63,7 +63,7 @@ router.post("/",
             const filename = `${filenameTitle}_${filenameArtist}_${filenameAlbum}`;
             // 禁止重复上传
             const songFilePostfix = path.extname(songFile.originalname);
-            const songObjectName = `song/${filename}${songFilePostfix}`;
+            const songObjectName = `song/file/${filename}${songFilePostfix}`;
             try {
                 await s3Client.statObject(BUCKETNAME, songObjectName);
                 throw new HttpError("请勿重复上传", 409);
@@ -83,7 +83,7 @@ router.post("/",
             let coverObjectName = null;
             if (coverFile) {
                 const coverFilePostfix = path.extname(coverFile.originalname);
-                coverObjectName = `cover/${filename}_cover${coverFilePostfix}`;
+                coverObjectName = `song/cover/${filename}${coverFilePostfix}`;
                 await s3Client.fPutObject(BUCKETNAME, coverObjectName, coverFile.path);
             }
             // 存储元数据
