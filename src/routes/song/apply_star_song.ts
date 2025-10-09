@@ -56,7 +56,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
     const count = result.reduce((answer: number, current: number) => {
         return answer + current;
     }, 0);
-    response.json({ message: `已收藏歌曲至${count}个收藏夹中` });
+    response.json({ message: `已添加歌曲至${count}个歌单中` });
 }));
 
 export default router;
