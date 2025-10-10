@@ -1,6 +1,6 @@
 import express from "express";
 import { checkEmptyField } from "../../utils/utility.js";
-import { playlist, song, playlistSong, s3Client, BUCKETNAME } from "../../database.js";
+import { user, playlist, song, playlistSong, s3Client, BUCKETNAME } from "../../database.js";
 import { HttpError, errorHandler } from "../../utils/errorHandler.js";
 
 const router = express.Router();
@@ -17,6 +17,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
         throw new HttpError("未找到歌单", 404);
     }
     // 获取元数据
+    const uploaderInfos: Record<string, unknown> = {};
     const songs = await playlistSong.find({ playlist_id: playlistId }).select("song_id");
     const songList = await Promise.all(
         songs.map(async (item) => {
@@ -31,13 +32,36 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
                 if (songInfo.cover_path) {
                     cover = await s3Client.presignedGetObject(BUCKETNAME, songInfo.cover_path, 24 * 60 * 60);
                 }
+                // 上传者
+                const uploaderId = songInfo.uploader.toString();
+                let uploaderObject;
+                if (Object.keys(uploaderInfos).includes(uploaderId)) {
+                    uploaderObject = uploaderInfos[uploaderId];
+                }
+                else {
+                    const uploaderInfo = await user.findById(songInfo.uploader).select("nickname avatar_path");
+                    if (!uploaderInfo) {
+                        throw new Error("未找到上传者信息");
+                    }
+                    let uploaderAvatar = null;
+                    // 头像url
+                    if (uploaderInfo.avatar_path) {
+                        uploaderAvatar = await s3Client.presignedGetObject(BUCKETNAME, uploaderInfo.avatar_path, 24 * 60 * 60);
+                    }
+                    uploaderObject = { 
+                        id: songInfo.uploader, 
+                        nickname: uploaderInfo.nickname, 
+                        avatar: uploaderAvatar 
+                    };
+                    uploaderInfos[uploaderId] = uploaderObject;
+                }
                 return {
                     id: songId,
                     title: songInfo.title,
                     artist: songInfo.artist,
                     album: songInfo.album,
                     duration: songInfo.duration,
-                    uploader: songInfo.uploader,
+                    uploader: uploaderObject,
                     cover: cover
                 };
             }

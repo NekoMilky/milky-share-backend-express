@@ -1,6 +1,6 @@
 import express from "express";
 import { checkEmptyField } from "../../utils/utility.js";
-import { song, s3Client, BUCKETNAME } from "../../database.js";
+import { user, song, s3Client, BUCKETNAME } from "../../database.js";
 import { HttpError, errorHandler } from "../../utils/errorHandler.js";
 
 const router = express.Router();
@@ -24,6 +24,21 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
     if (songInfo.cover_path) {
         cover = await s3Client.presignedGetObject(BUCKETNAME, songInfo.cover_path, 24 * 60 * 60);
     }
+    // 上传者
+    const uploaderInfo = await user.findById(songInfo.uploader).select("nickname avatar_path");
+    if (!uploaderInfo) {
+        throw new HttpError("未找到上传者信息", 404);
+    }
+    // 头像url
+    let avatar = null;
+    if (uploaderInfo.avatar_path) {
+        avatar = await s3Client.presignedGetObject(BUCKETNAME, uploaderInfo.avatar_path, 24 * 60 * 60);
+    }
+    const uploaderObject = { 
+        id: songInfo.uploader, 
+        nickname: uploaderInfo.nickname, 
+        avatar: avatar 
+    };
     response.json({
         message: "获取歌曲成功",
         song: {
@@ -33,7 +48,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
             title: songInfo.title,
             artist: songInfo.artist,
             album: songInfo.album,
-            uploader: songInfo.uploader
+            uploader: uploaderObject
         }
     });
 }));
