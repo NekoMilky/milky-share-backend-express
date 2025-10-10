@@ -33,10 +33,10 @@ router.post("/",
         try {
             const files = request.files as { [name: string]: Express.Multer.File[] } | undefined;
             const coverFile = files?.["cover"] ? files["cover"][0] : null;
-            const { userId, playlistId, name } = request.body;
+            const { operatorUserId, playlistId, name } = request.body;
             const empty = checkEmptyFields(
-                { userId, playlistId, name }, 
-                { userId: "用户id", playlistId: "歌单id", name: "歌单名" }
+                { operatorUserId, playlistId, name }, 
+                { operatorUserId: "操作用户id", playlistId: "歌单id", name: "歌单名" }
             );
             if (empty) {
                 throw new HttpError(empty, 400);
@@ -47,7 +47,7 @@ router.post("/",
                 throw new HttpError("未找到歌单", 404);
             }
             // 权限校验
-            if (playlistInfo.create_user.toString() !== userId) {
+            if (playlistInfo.create_user.toString() !== operatorUserId) {
                 throw new HttpError("权限不足", 403);
             }
             // 上传封面文件

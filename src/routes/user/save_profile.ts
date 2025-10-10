@@ -33,10 +33,10 @@ router.post("/",
         try {
             const files = request.files as { [name: string]: Express.Multer.File[] } | undefined;
             const avatarFile = files?.["avatar"] ? files["avatar"][0] : null;
-            const { userId, nickname } = request.body;
+            const { operatorUserId, userId, nickname } = request.body;
             const empty = checkEmptyFields(
-                { userId, nickname }, 
-                { userId: "用户id", nickname: "昵称" }
+                { operatorUserId, userId, nickname }, 
+                { operatorUserId: "操作用户id", userId: "用户id", nickname: "昵称" }
             );
             if (empty) {
                 throw new HttpError(empty, 400);
@@ -48,6 +48,10 @@ router.post("/",
             const userInfo = await user.findById(userId).select("avatar_path");
             if (!userInfo) {
                 throw new HttpError("未找到用户", 404);
+            }
+            // 权限校验
+            if (userId !== operatorUserId) {
+                throw new HttpError("权限不足", 403);
             }
             // 上传头像文件
             let avatarObjectName = null;
