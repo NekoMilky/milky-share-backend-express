@@ -2,11 +2,20 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import axios from "axios";
+import FormData from "form-data";
 import { S3Error } from "minio";
 import { HttpError } from "../../utils/errorHandler.js";
 import { checkEmptyFields } from "../../utils/utility.js";
 import { sentToClients } from "../../utils/webSocket.js";
 import { song, user, s3Client, BUCKETNAME } from "../../database.js";
+
+interface SongLyric {
+    text: string,
+    start: number
+};
+
+const FLASK_URL = process.env.FLASK_URL;
 
 const router = express.Router();
 const storage = multer.diskStorage({
@@ -23,9 +32,28 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-const removeSpecialChar = (string: string) => {
+const removeSpecialChar = (string: string): string => {
     return string.replace(/[\/\\:*?"<>|]/g, " ");
-}
+};
+
+const getLyrics = async (file: Express.Multer.File): Promise<Array<SongLyric> | null> => {
+    try {
+        const formData = new FormData();
+        const fileStream = fs.createReadStream(file.path);
+        formData.append("file", fileStream, {
+            filename: file.originalname,
+            contentType: file.mimetype
+        });
+        const response = await axios.post(`${FLASK_URL}/transcribe`, formData, {
+            headers: { ...formData.getHeaders() }
+        });
+        return response.data.lyrics as Array<SongLyric>;
+    } 
+    catch (error) {
+        console.error("获取歌词时发生错误：", error);
+        return null;
+    }
+};
 
 // 上传歌曲接口
 router.post("/",
@@ -77,6 +105,8 @@ router.post("/",
                     throw new HttpError("检查音频文件时出错", 500);
                 }
             }
+            // 获取歌词
+            const lyrics = await getLyrics(songFile);
             // 上传音乐文件
             await s3Client.fPutObject(BUCKETNAME, songObjectName, songFile.path);
             // 上传封面文件
@@ -95,6 +125,7 @@ router.post("/",
                 uploader: userId,
                 song_path: songObjectName,
                 cover_path: coverObjectName,
+                lyrics: lyrics
             });
             // 向客户端发送更新消息
             sentToClients({ message: "update_all_song" });

@@ -56,7 +56,11 @@ const songSchema = new mongoose.Schema({
     duration: { type: Number, required: true },
     uploader: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
     song_path: { type: String, required: true },
-    cover_path: { type: String }
+    cover_path: { type: String },
+    lyrics: [{
+        text: { type: String, required: true },
+        start: { type: Number, required: true }
+    }]
 }, { versionKey: false });
 export const song = mongoose.model("song", songSchema);
 

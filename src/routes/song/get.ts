@@ -13,7 +13,7 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
         throw new HttpError(empty, 400);
     }
     // 查询存在性
-    const songInfo = await song.findById(songId).select("_id title artist album song_path cover_path uploader");
+    const songInfo = await song.findById(songId).select("_id title artist album song_path cover_path uploader lyrics");
     if (!songInfo) {
         throw new HttpError("未找到歌曲", 404);
     }
@@ -48,7 +48,8 @@ router.post("/", express.json(), errorHandler(async (request, response) => {
             title: songInfo.title,
             artist: songInfo.artist,
             album: songInfo.album,
-            uploader: uploaderObject
+            uploader: uploaderObject,
+            lyrics: songInfo.lyrics
         }
     });
 }));
